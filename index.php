@@ -33,77 +33,120 @@ $PAGE->set_context(context_system::instance());
 $PAGE->set_title(get_string('wikicreator', 'local_wikicreator'));
 $PAGE->set_heading(get_string('wikicreator', 'local_wikicreator'));
 
-global $DB;
+global $DB, $OUTPUT, $CFG;
+
+// Text clearner to avoid malicious code.
+require_once($CFG->libdir.'/weblib.php');
 
 // Retrieve plugin parameters.
-$wikiid       = get_config('local_wikicreator', 'wikiid');
+$wikiid      = get_config('local_wikicreator', 'wikiid');
 $pagesjson   = get_config('local_wikicreator', 'pages');
 $groupscsv   = get_config('local_wikicreator', 'groups');
-$useprefix    = get_config('local_wikicreator', 'usegroupprefix');
+$useprefix   = get_config('local_wikicreator', 'usegroupprefix');
 
-$pages = json_decode($pagesjson, true);
-$groupids = array_map('trim', explode(',', $groupscsv));
-
-if (empty($wikiid) || empty($pages) || empty($groupids)) {
+// Strict validation of wikiid.
+if (empty($wikiid) || !ctype_digit((string)$wikiid)) {
     echo $OUTPUT->header();
-    echo $OUTPUT->notification(get_string('invalid_settings', 'local_wikicreator'), 'notifyproblem');
+    echo $OUTPUT->notification(get_string('invalid_wikiid', 'local_wikicreator'), 'notifyproblem');
     echo $OUTPUT->footer();
     exit;
 }
 
-// For each group, retrieve or create the sub-wiki, then insert the pages if they don't already exist.
+// Validate and extract group IDs.
+$groupids = array_filter(array_map('trim', explode(',', $groupscsv)), function($id) {
+    return ctype_digit($id);
+});
+if (empty($groupids)) {
+    echo $OUTPUT->header();
+    echo $OUTPUT->notification(get_string('no_valid_group', 'local_wikicreator'), 'notifyproblem');
+    echo $OUTPUT->footer();
+    exit;
+}
+
+// Decode JSON with error handling.
+$pages = json_decode($pagesjson, true);
+if (json_last_error() !== JSON_ERROR_NONE || !is_array($pages)) {
+    echo $OUTPUT->header();
+    echo $OUTPUT->notification(get_string('json_error', 'local_wikicreator', json_last_error_msg()), 'notifyproblem');
+    echo $OUTPUT->footer();
+    exit;
+}
+if (empty($pages)) {
+    echo $OUTPUT->header();
+    echo $OUTPUT->notification(get_string('no_pages_defined', 'local_wikicreator'), 'notifyproblem');
+    echo $OUTPUT->footer();
+    exit;
+}
+
+// Counters for final report.
+$pagescreated = 0;
+$pagesskipped = 0;
+$errors = [];
+
 foreach ($groupids as $groupid) {
-    if (empty($groupid)) {
+    // Check group existence.
+    $group = $DB->get_record('groups', ['id' => $groupid]);
+    if (!$group) {
+        $errors[] = get_string('group_not_found', 'local_wikicreator', $groupid);
         continue;
     }
 
-    // Retrieve the existing sub-wiki for this wikiid and groupid with userid = 0.
+    // Retrieve or create subwiki.
     $subwiki = $DB->get_record('wiki_subwikis', [
-    'wikiid'  => $wikiid,
-    'groupid' => $groupid,
-    'userid'  => 0,
+        'wikiid'  => $wikiid,
+        'groupid' => $groupid,
+        'userid'  => 0,
     ]);
-
-    // If the sub-wiki does not exist, create it.
     if (!$subwiki) {
         $subwiki = new stdClass();
         $subwiki->wikiid  = $wikiid;
         $subwiki->groupid = $groupid;
-        $subwiki->userid  = 0; // Assurez-vous que cette valeur correspond à votre logique.
-        $subwiki->id = $DB->insert_record('wiki_subwikis', $subwiki);
+        $subwiki->userid  = 0;
+        try {
+            $subwiki->id = $DB->insert_record('wiki_subwikis', $subwiki);
+        } catch (Exception $e) {
+            $errors[] = get_string('subwiki_creation_error', 'local_wikicreator', [$groupid, $e->getMessage()]);
+            continue;
+        }
     }
 
-    // If the prefix box is ticked, retrieve the group name and prepare the HTML prefix.
+    // Prepare group prefix (secured HTML).
+    $prefix = '';
     if ($useprefix) {
-        $group = $DB->get_record('groups', ['id' => $groupid]);;
-        $prefix = $group ? '<div style="font-size:20px;"><strong>' . $group->name . '</strong></div>' . "\n" : '';
-    } else {
-        $prefix = '';
+        $groupnameclean = clean_text($group->name, FORMAT_HTML);
+        $prefix = '<div style="font-size:20px;"><strong>' . $groupnameclean . '</strong></div>' . "\n";
     }
 
-    // For each page defined in the configuration, insert the page if it does not already exist.
     foreach ($pages as $title => $content) {
-        // Add the prefix (if enabled) before the content of the JSON file.
-        $finalcontent = $prefix . $content;
+        // Only allow string titles, not empty.
+        if (empty($title) || !is_string($title)) {
+            $errors[] = get_string('invalid_page_title', 'local_wikicreator', $groupid);
+            continue;
+        }
+        $titleclean = clean_param($title, PARAM_TEXT);
 
-        // Convert the final content to HTML.
-        $htmlcontent = format_text($finalcontent, FORMAT_HTML);
-
-        // Check whether the page already exists for this sub-wiki.
-        if ($DB->record_exists('wiki_pages', ['subwikiid' => $subwiki->id, 'title' => $title])) {
+        if ($DB->record_exists('wiki_pages', ['subwikiid' => $subwiki->id, 'title' => $titleclean])) {
+            $pagesskipped++;
             continue;
         }
 
-        // Create the page in wiki_pages.
+        $finalcontent = $prefix . $content;
+        $htmlcontent = clean_text($finalcontent, FORMAT_HTML);
+
         $page = new stdClass();
         $page->subwikiid     = $subwiki->id;
-        $page->title         = $title;
+        $page->title         = $titleclean;
         $page->cachedcontent = $htmlcontent;
         $page->timecreated   = time();
         $page->timemodified  = time();
-        $page->id = $DB->insert_record('wiki_pages', $page);
 
-        // Create the initial version in wiki_versions.
+        try {
+            $page->id = $DB->insert_record('wiki_pages', $page);
+        } catch (Exception $e) {
+            $errors[] = get_string('page_creation_error', 'local_wikicreator', [$titleclean, $groupid, $e->getMessage()]);
+            continue;
+        }
+
         $version = new stdClass();
         $version->pageid      = $page->id;
         $version->content     = $htmlcontent;
@@ -111,11 +154,23 @@ foreach ($groupids as $groupid) {
         $version->userid      = 0;
         $version->timecreated = time();
         $version->contentformat = 'html';
-        $DB->insert_record('wiki_versions', $version);
+
+        try {
+            $DB->insert_record('wiki_versions', $version);
+            $pagescreated++;
+        } catch (Exception $e) {
+            $errors[] = get_string('version_creation_error', 'local_wikicreator', [$titleclean, $groupid, $e->getMessage()]);
+        }
     }
 }
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('wikicreator', 'local_wikicreator'));
-echo $OUTPUT->notification(get_string('success_message', 'local_wikicreator'), 'notifysuccess');
+
+$summarydata = (object)['created' => $pagescreated, 'skipped' => $pagesskipped];
+echo $OUTPUT->notification(get_string('summary', 'local_wikicreator', $summarydata), 'notifysuccess');
+
+if (!empty($errors)) {
+    echo $OUTPUT->notification(implode('<br>', $errors), 'notifyproblem');
+}
 echo $OUTPUT->footer();

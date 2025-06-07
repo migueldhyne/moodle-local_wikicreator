@@ -15,17 +15,31 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Version details for the local_wikicreator plugin.
- * Specifies the plugin component name, version number, and minimum Moodle version required.
- * This file is used by Moodle during plugin installation and upgrades.
+ * Privacy class for the block_pluginname plugin.
  *
  * @package   local_wikicreator
  * @copyright 2025, Miguël Dhyne <miguel.dhyne@gmail.com>
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
+namespace block_pin_user\privacy;
 
-$plugin->component = 'local_wikicreator';
-$plugin->version   = 2025060700; // Version date: YYYYMMDD00.
-$plugin->requires  = 2021051700; // Minimum version of Moodle (here 3.11 for example).
+/**
+ * Privacy provider for the Pin User block.
+ *
+ * @package    local_wikicreator
+ * @copyright  …
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+class provider implements \core_privacy\local\metadata\null_provider {
+    /**
+     * Returns the language string identifier with the component's
+     * language file to explain why this plugin stores no data.
+     *
+     * @return  string
+     */
+    public static function get_reason(): string {
+        // Correspond au libellé 'privacy:metadata' dans vos fichiers de langue.
+        return 'privacy:metadata';
+    }
+}

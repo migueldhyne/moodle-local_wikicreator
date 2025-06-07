@@ -25,14 +25,23 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-$string['pluginname']       = 'Wiki Creator';
-$string['wikicreator']      = 'Wiki Creator';
-$string['settings_wikiid']  = 'Wiki ID';
-$string['settings_pages']   = 'Pages (JSON format: {"Page Title": "<p>HTML Content</p>", ...})';
-$string['settings_groups']  = 'Group IDs (comma-separated)';
 $string['create_pages']     = 'Create Wiki Pages';
-$string['success_message']  = 'Wiki pages have been successfully created.';
+$string['group_not_found'] = 'Group ID {$a} does not exist.';
+$string['invalid_page_title'] = 'Invalid page title for group {$a}.';
 $string['invalid_settings'] = 'Invalid settings. Please check the configuration.';
+$string['invalid_wikiid'] = 'Invalid wiki ID.';
+$string['json_error'] = 'JSON decoding error: {$a}';
+$string['no_pages_defined'] = 'No pages defined in the configuration.';
+$string['no_valid_group'] = 'No valid group found.';
+$string['page_creation_error'] = 'Error creating page "{$a}" for group {$b}: {$c}';
+$string['pluginname']       = 'Wiki Creator';
+$string['settings_groups']  = 'Group IDs (comma-separated)';
+$string['settings_pages']   = 'Pages (JSON format: {"Page Title": "<p>HTML Content</p>", ...})';
+$string['settings_wikiid']  = 'Wiki ID';
+$string['subwiki_creation_error'] = 'Error creating subwiki for group {$a}: {$b}';
+$string['success_message'] = 'Operation successful: Wiki pages have been created.';
+$string['summary'] = '{$a->created} page(s) created, {$a->skipped} page(s) skipped (already exist).';
 $string['usegroupprefix'] = 'Use group prefix';
 $string['usegroupprefix_desc'] = 'If checked, the group name will be automatically added as a prefix (using a predefined HTML code) to each page created.';
-
+$string['version_creation_error'] = 'Error creating version for "{$a}" (group {$b}): {$c}';
+$string['wikicreator']      = 'Wiki Creator';
