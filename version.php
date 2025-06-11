@@ -27,5 +27,5 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_wikicreator';
-$plugin->version   = 2025060700; // Version date: YYYYMMDD00.
+$plugin->version   = 2025061200; // Version date: YYYYMMDD00.
 $plugin->requires  = 2021051700; // Minimum version of Moodle (here 3.11 for example).

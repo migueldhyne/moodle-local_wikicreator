@@ -35,6 +35,7 @@ $string['no_pages_defined'] = 'Aucune page définie dans la configuration.';
 $string['no_valid_group'] = 'Aucun groupe valide trouvé.';
 $string['page_creation_error'] = 'Erreur création page "{$a}" pour groupe {$b} : {$c}';
 $string['pluginname']       = 'Créateur de Wiki';
+$string['privacy:metadata'] = 'Wikicreator ne stocke aucune donnée personnelle.';
 $string['settings_groups']  = 'IDs des groupes (séparés par une virgule)';
 $string['settings_pages']   = 'Pages (format JSON : {"Titre de la page": "<p>Contenu HTML</p>", ...})';
 $string['settings_wikiid']  = 'ID du Wiki';
