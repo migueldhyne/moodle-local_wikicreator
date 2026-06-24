@@ -16,8 +16,6 @@
 
 /**
  * Version details for the local_wikicreator plugin.
- * Specifies the plugin component name, version number, and minimum Moodle version required.
- * This file is used by Moodle during plugin installation and upgrades.
  *
  * @package   local_wikicreator
  * @copyright 2025, Miguël Dhyne <miguel.dhyne@gmail.com>
@@ -27,5 +25,5 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_wikicreator';
-$plugin->version   = 2025061200; // Version date: YYYYMMDD00.
-$plugin->requires  = 2021051700; // Minimum version of Moodle (here 3.11 for example).
+$plugin->version   = 2025062501;
+$plugin->requires  = 2021051700; // Minimum Moodle 3.11.

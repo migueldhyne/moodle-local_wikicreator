@@ -15,31 +15,29 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Privacy class for the block_pluginname plugin.
+ * Privacy provider for the local_wikicreator plugin.
  *
  * @package   local_wikicreator
  * @copyright 2025, Miguël Dhyne <miguel.dhyne@gmail.com>
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-namespace block_pin_user\privacy;
+namespace local_wikicreator\privacy;
 
 /**
- * Privacy provider for the Pin User block.
+ * Privacy provider for the Wiki Creator plugin.
  *
- * @package    local_wikicreator
- * @copyright  …
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package   local_wikicreator
+ * @copyright 2025, Miguël Dhyne <miguel.dhyne@gmail.com>
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class provider implements \core_privacy\local\metadata\null_provider {
     /**
-     * Returns the language string identifier with the component's
-     * language file to explain why this plugin stores no data.
+     * Returns the reason why this plugin stores no data.
      *
-     * @return  string
+     * @return string
      */
     public static function get_reason(): string {
-        // Correspond au libellé 'privacy:metadata' dans vos fichiers de langue.
         return 'privacy:metadata';
     }
 }
