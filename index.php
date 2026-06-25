@@ -19,6 +19,8 @@
  * using a JSON object and optional group filters. It also supports adding group
  * name prefixes to page titles for better organization.
  *
+ * Accepts parameters via POST (from manage.php) or falls back to plugin config.
+ *
  * @package   local_wikicreator
  * @copyright 2025, Miguël Dhyne <miguel.dhyne@gmail.com>
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -35,14 +37,90 @@ $PAGE->set_heading(get_string('wikicreator', 'local_wikicreator'));
 
 global $DB, $OUTPUT, $CFG;
 
-// Text clearner to avoid malicious code.
-require_once($CFG->libdir.'/weblib.php');
+require_once($CFG->libdir . '/weblib.php');
 
-// Retrieve plugin parameters.
-$wikiid      = get_config('local_wikicreator', 'wikiid');
-$pagesjson   = get_config('local_wikicreator', 'pages');
-$groupscsv   = get_config('local_wikicreator', 'groups');
-$useprefix   = get_config('local_wikicreator', 'usegroupprefix');
+// Check if this is a confirmed POST from manage.php.
+$ispost = ($_SERVER['REQUEST_METHOD'] === 'POST' && optional_param('confirm', 0, PARAM_INT) === 1);
+
+if ($ispost) {
+    require_sesskey();
+    $wikiid    = required_param('wikiid', PARAM_INT);
+    $pagesjson = required_param('pages', PARAM_RAW);
+    $groupscsv = required_param('groups', PARAM_RAW);
+    $useprefix = optional_param('useprefix', 0, PARAM_INT);
+
+    // Also save to config for future reference.
+    set_config('wikiid', $wikiid, 'local_wikicreator');
+    set_config('pages', $pagesjson, 'local_wikicreator');
+    set_config('groups', $groupscsv, 'local_wikicreator');
+    set_config('usegroupprefix', $useprefix, 'local_wikicreator');
+} else {
+    // Legacy mode: read from plugin settings.
+    $wikiid    = get_config('local_wikicreator', 'wikiid');
+    $pagesjson = get_config('local_wikicreator', 'pages');
+    $groupscsv = get_config('local_wikicreator', 'groups');
+    $useprefix = get_config('local_wikicreator', 'usegroupprefix');
+
+    // If accessed directly (not POST), show a confirmation page.
+    if (!optional_param('run', 0, PARAM_INT)) {
+        echo $OUTPUT->header();
+        echo $OUTPUT->heading(get_string('wikicreator', 'local_wikicreator'));
+
+        // Validate before showing confirmation.
+        $valid = true;
+        if (empty($wikiid) || !ctype_digit((string)$wikiid)) {
+            echo $OUTPUT->notification(get_string('invalid_wikiid', 'local_wikicreator'), 'notifyproblem');
+            $valid = false;
+        }
+        $groupids = array_filter(array_map('trim', explode(',', $groupscsv)), function ($id) {
+            return ctype_digit($id);
+        });
+        if ($valid && empty($groupids)) {
+            echo $OUTPUT->notification(get_string('no_valid_group', 'local_wikicreator'), 'notifyproblem');
+            $valid = false;
+        }
+        if ($valid) {
+            $pages = json_decode($pagesjson, true);
+            if (json_last_error() !== JSON_ERROR_NONE || !is_array($pages) || empty($pages)) {
+                echo $OUTPUT->notification(get_string('json_error', 'local_wikicreator', json_last_error_msg()), 'notifyproblem');
+                $valid = false;
+            }
+        }
+
+        if ($valid) {
+            $wiki = $DB->get_record('wiki', ['id' => $wikiid]);
+            $wikiname = $wiki ? $wiki->name : "ID $wikiid";
+            $numpages = count($pages);
+            $numgroups = count($groupids);
+
+            echo '<div class="alert alert-info">';
+            $legacydata = (object)['wiki' => s($wikiname), 'pages' => $numpages, 'groups' => $numgroups];
+            echo '<p>' . get_string('confirm_run_legacy', 'local_wikicreator', $legacydata) . '</p>';
+            echo '</div>';
+
+            $runurl = new moodle_url('/local/wikicreator/index.php', ['run' => 1, 'sesskey' => sesskey()]);
+            $manageurl = new moodle_url('/local/wikicreator/manage.php');
+            echo '<p>';
+            echo '<a href="' . $runurl->out(false) . '" class="btn btn-primary">' .
+                 get_string('btn_run_creation', 'local_wikicreator') . '</a> ';
+            echo '<a href="' . $manageurl->out(false) . '" class="btn btn-secondary">' .
+                 get_string('btn_back_manage', 'local_wikicreator') . '</a>';
+            echo '</p>';
+        } else {
+            $manageurl = new moodle_url('/local/wikicreator/manage.php');
+            echo '<p><a href="' . $manageurl->out(false) . '" class="btn btn-primary">' .
+                 get_string('btn_back_manage', 'local_wikicreator') . '</a></p>';
+        }
+
+        echo $OUTPUT->footer();
+        exit;
+    }
+
+    // If run=1, verify sesskey.
+    require_sesskey();
+}
+
+// Execute wiki creation.
 
 // Strict validation of wikiid.
 if (empty($wikiid) || !ctype_digit((string)$wikiid)) {
@@ -53,7 +131,7 @@ if (empty($wikiid) || !ctype_digit((string)$wikiid)) {
 }
 
 // Validate and extract group IDs.
-$groupids = array_filter(array_map('trim', explode(',', $groupscsv)), function($id) {
+$groupids = array_filter(array_map('trim', explode(',', $groupscsv)), function ($id) {
     return ctype_digit($id);
 });
 if (empty($groupids)) {
@@ -118,7 +196,6 @@ foreach ($groupids as $groupid) {
     }
 
     foreach ($pages as $title => $content) {
-        // Only allow string titles, not empty.
         if (empty($title) || !is_string($title)) {
             $errors[] = get_string('invalid_page_title', 'local_wikicreator', $groupid);
             continue;
@@ -173,4 +250,10 @@ echo $OUTPUT->notification(get_string('summary', 'local_wikicreator', $summaryda
 if (!empty($errors)) {
     echo $OUTPUT->notification(implode('<br>', $errors), 'notifyproblem');
 }
+
+// Link back to manage page.
+$manageurl = new moodle_url('/local/wikicreator/manage.php');
+echo '<p><a href="' . $manageurl->out(false) . '" class="btn btn-secondary">' .
+     get_string('btn_back_manage', 'local_wikicreator') . '</a></p>';
+
 echo $OUTPUT->footer();

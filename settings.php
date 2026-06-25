@@ -15,60 +15,28 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Settings for the local_wikicreator plugin.
+ * Settings registration for the local_wikicreator plugin.
  *
- * Defines the configuration options available in the Moodle administration interface.
- * These settings allow administrators to specify:
- * - The target Wiki ID
- * - A JSON object defining the wiki pages to create
- * - A list of group IDs (optional)
- * - Whether to use group name prefixes in page titles
+ * Registers an external admin page so that manage.php appears directly
+ * in the Moodle admin tree under "Local plugins", with no intermediate
+ * settings page. Navigating to the plugin entry opens the management
+ * interface immediately.
  *
  * @package   local_wikicreator
- * @category  admin
  * @copyright 2025, Miguël Dhyne <miguel.dhyne@gmail.com>
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-if ($hassiteconfig) { // Checks whether the user has the right to access the configuration.
-    $settings = new admin_settingpage('local_wikicreator', get_string('wikicreator', 'local_wikicreator'));
-
-    // Wiki ID field.
-    $settings->add(new admin_setting_configtext(
-        'local_wikicreator/wikiid',
-        get_string('settings_wikiid', 'local_wikicreator'),
-        '',
-        '',
-        PARAM_INT
+if ($hassiteconfig) {
+    $ADMIN->add('localplugins', new admin_externalpage(
+        'local_wikicreator',
+        get_string('pluginname', 'local_wikicreator'),
+        new moodle_url('/local/wikicreator/manage.php'),
+        'moodle/site:config'
     ));
 
-    // Field for pages (in JSON).
-    $settings->add(new admin_setting_configtextarea(
-        'local_wikicreator/pages',
-        get_string('settings_pages', 'local_wikicreator'),
-        '',
-        '{"Accueil": "<p>Bienvenue sur le wiki.</p>", "Page1": "<p>Contenu de la page 1</p>"}',
-        PARAM_RAW
-    ));
-
-    // Field for group IDs.
-    $settings->add(new admin_setting_configtext(
-        'local_wikicreator/groups',
-        get_string('settings_groups', 'local_wikicreator'),
-        '',
-        '',
-        PARAM_RAW
-    ));
-
-    // Option : Use group prefix (automatically adds the group name as a prefix to each page).
-    $settings->add(new admin_setting_configcheckbox(
-        'local_wikicreator/usegroupprefix',
-        get_string('usegroupprefix', 'local_wikicreator'),
-        get_string('usegroupprefix_desc', 'local_wikicreator'),
-        0
-    ));
-
-    $ADMIN->add('localplugins', $settings);
+    // Prevent Moodle from creating an empty settings page for this plugin.
+    $settings = null;
 }
